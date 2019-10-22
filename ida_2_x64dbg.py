@@ -1,0 +1,136 @@
+import idautils
+import idc
+import idaapi
+import os
+import getpass
+from time import gmtime, strftime
+import ctypes
+
+class SettingsView(Form):
+    def __init__(self):
+        self.invert = False
+
+        def reg():
+            command_buffer = ''
+            for func in Functions():
+                if (get_func_attr(func, FUNCATTR_FLAGS) & FUNC_LIB or get_func_attr(func, FUNCATTR_FLAGS) & FUNC_THUNK):
+                    continue
+                dism = list(idautils.FuncItems(func))
+                for i in dism:
+                    if (print_insn_mnem(i) == "call" or print_insn_mnem(i) == "jmp"):
+                        if (get_operand_type(i, 0) == o_reg):
+                            command_buffer = command_buffer + 'bp ' + str(hex(i))[:-1] + '\t\t//' + ' ' + str(generate_disasm_line(i, 0)) + '\n'
+            return command_buffer
+
+
+        def ssdt():
+            command_buffer = ''
+            for func in Functions():
+                if (get_func_attr(func, FUNCATTR_FLAGS) & FUNC_LIB or get_func_attr(func, FUNCATTR_FLAGS) & FUNC_THUNK):
+                    continue
+                dism = list(idautils.FuncItems(func))
+                for i in dism:
+                    if (print_insn_mnem(i) == "sidt"):
+                        command_buffer = command_buffer + 'bp ' + str(hex(i))[:-1] + '\t\t//' + ' ' + str(generate_disasm_line(i, 0)) + '\n'
+            return command_buffer
+
+
+        def cpuid():
+            command_buffer = ''
+            for func in Functions():
+                if (get_func_attr(func, FUNCATTR_FLAGS) & FUNC_LIB or get_func_attr(func, FUNCATTR_FLAGS) & FUNC_THUNK):
+                    continue
+                dism = list(idautils.FuncItems(func))
+                for i in dism:
+                    if (print_insn_mnem(i) == "cpuid"):
+                        command_buffer = command_buffer + 'bp ' + str(hex(i))[:-1] + '\t\t//' + ' ' + str(generate_disasm_line(i, 0)) + '\n'
+            return command_buffer
+
+
+        def breaks():
+            command_buffer = ''
+            i = 0
+            while (i != get_bpt_qty()):
+                command_buffer = command_buffer + 'bp ' + str(hex(get_bpt_ea(i)))[:-1] + '\t\t//' + ' ' + str(generate_disasm_line(i, 0)) + '\n'
+                i += 1
+            return command_buffer
+
+
+        self.functions = {1: reg, 2: ssdt, 4: cpuid, 8: breaks}
+        name = getpass.getuser()
+
+        Form.__init__(self, ("STARTITEM 0\n"
+                             "BUTTON YES* NONE\n"
+                             "BUTTON CANCEL NONE\n"
+
+                             "bit faster\n"
+
+                             # "{FormChangeCb}"
+
+                             "\n"
+                             "Choose breaks\n"
+                             "<reg's calls:{rRegs}>"
+                             "<sidt calls:{rSidt}>"
+                             "<cpuid calls:{rCpuid}>\n"
+                             "<all your breakpoints:{rAll}>{cGroup1}>\n"
+
+
+                             "Don't forget to choose directory to save script\n"
+                             "<:{iDir}>\n"
+
+                             "<##Create x64dbg-script:{iButton1}>\n"
+                             ), {
+                          'cGroup1': Form.ChkGroupControl(("rRegs", "rSidt", "rCpuid", "rAll"), value = 8),
+                          'iButton1': Form.ButtonInput(self.OnButton1),
+                          'iDir': Form.DirInput(value = 'C:\\Users\\' + name + '\\Desktop')
+
+                          # 'FormChangeCb': Form.FormChangeCb(self.OnFormChange)
+
+                      })
+
+
+    def write2script(self, distance, script):
+        with open(distance, 'w+') as dist:
+            dist.write(script)
+
+    def OnButton1(self, code=0):
+        g1 = self.GetControlValue(self.cGroup1)
+        d = self.GetControlValue(self.iDir)
+
+        # if d == '':
+        #     print('bad')
+
+        deuces = [8, 4, 2, 1]
+        counter = g1
+        script_str = ''
+        for i in deuces:
+            if (counter - i >= 0):
+                script_str = self.functions[i]()
+                counter -= i
+            else:
+                continue
+        self.write2script(d + '\\x64dbg_script_' + strftime("%Y-%m-%d_%H_%M_%S", gmtime()) + '.txt', script_str)
+        idc.AskLong(self.GetLineNo(), "Where to go?")
+        #idaapi.AskusingForm('sadsdasdas')
+#    def OnFormChange(self, fid):
+#        #self.GetContolValue(self.Group1)
+#        if fid == self.iButton1.id:
+#           g1 = self.GetControlValue(self.cGroup1)
+#            print(str(g1))
+
+
+def Show():
+    settings = SettingsView()
+    settings.Compile()
+    settings.Execute()
+
+
+    # check
+    # collects special breaks
+    # write script
+    # Show "done message or error, if error: Show()"
+
+    settings.Free()
+
+
+Show()
