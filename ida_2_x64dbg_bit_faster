@@ -70,8 +70,8 @@ class SettingsView(Form):
                              "\n"
                              "Choose breaks\n"
                              "<reg's calls:{rRegs}>"
-                             "<sidt calls:{rSidt}>"
-                             "<cpuid calls:{rCpuid}>\n"
+                             "<sidt:{rSidt}>"
+                             "<cpuid:{rCpuid}>\n"
                              "<all your breakpoints:{rAll}>{cGroup1}>\n"
 
 
@@ -90,7 +90,7 @@ class SettingsView(Form):
 
 
     def write2script(self, distance, script):
-        with open(distance, 'w+') as dist:
+        with open(distance, 'a+') as dist:
             dist.write(script)
 
     def OnButton1(self, code=0):
@@ -105,14 +105,15 @@ class SettingsView(Form):
         script_str = ''
         for i in deuces:
             if (counter - i >= 0):
-                script_str = self.functions[i]()
+                script_str_bu = self.functions[i]()
                 counter -= i
+                script_str += script_str_bu
             else:
                 continue
         self.write2script(d + '\\x64dbg_script_' + strftime("%Y-%m-%d_%H_%M_%S", gmtime()) + '.txt', script_str)
-        
+
         #idaapi.AskusingForm('sadsdasdas')
-        
+
 #    def OnFormChange(self, fid):
 #        #self.GetContolValue(self.Group1)
 #        if fid == self.iButton1.id:
